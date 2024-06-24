@@ -2,6 +2,7 @@ from transformers import AutoModel, AutoTokenizer
 import torch
 from sklearn.metrics.pairwise import euclidean_distances
 import numpy as np
+import re
 
 def knn_labels(points, centers):
     distance = euclidean_distances(points, centers)
@@ -40,4 +41,31 @@ def trace_context(sen_ID, data):
             break
     return context
 
-def select_top20(quesion, model, tokenizer):
+def format_QA(QA):
+    QA['answer_options'][1]=QA['answer_options'][1][3:]
+    QA['answer_options'][2]=QA['answer_options'][2][3:]
+    QA['answer_options'][3]=QA['answer_options'][3][3:]
+    QA['answer_options'][4]=QA['answer_options'][4][3:]
+    if(QA['correct_answer'][0]=="A"):
+        QA['correct_answer']=0
+    elif(QA['correct_answer'][0]=="B"):
+        QA['correct_answer']=1
+    elif(QA['correct_answer'][0]=="C"):
+        QA['correct_answer']=2
+    else:
+        QA['correct_answer']=3
+    return QA
+
+def vectorize_context(context, QA, model, tokenizer):
+    delimiters = "[.,;!]"  
+    sens = re.split(delimiters, context)
+    vec_context = []
+    for sen in sens:
+        new_vec_sen = vectorize_sentence(sen, model, tokenizer)
+        vec_context.append(new_vec_sen)
+    vec_question = vectorize_sentence(QA['question'], model, tokenizer)
+    vec_answer_options = []
+    for ans in QA['answer_options']:
+        new_vec_ans_opt = vectorize_sentence(ans, model, tokenizer)
+        vec_answer_options.append(new_vec_ans_opt)
+    return vec_context, vec_question, vec_answer_options
