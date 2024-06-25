@@ -1,12 +1,17 @@
-from transformers import AutoModel, AutoTokenizer
-import torch
-from sklearn.metrics.pairwise import euclidean_distances, cosine_similarity
+import json
 import numpy as np
 import re
+import torch
+from sklearn.metrics.pairwise import cosine_similarity
+from transformers import AutoModel, AutoTokenizer
 
-def load_model_tokenizer():
-    model = AutoModel.from_pretrained('./model')
-    tokenizer = AutoTokenizer.from_pretrained('uitnlp/CafeBERT')
+def load_model_tokenizer(path = ""):
+    if path == "":
+        model = AutoModel.from_pretrained('./model')
+        tokenizer = AutoTokenizer.from_pretrained('uitnlp/CafeBERT')
+    else:
+        model = AutoModel.from_pretrained(path)
+        tokenizer = AutoTokenizer.from_pretrained(path)
     return model, tokenizer
 
 def vectorize_sentence(sen, model, tokenizer):
@@ -17,8 +22,8 @@ def vectorize_sentence(sen, model, tokenizer):
         return word_vectors
     
 def trace_context(sen_ID, data):
-    need_check_ID = sen_ID[3]
-    if(sen_ID=="C"):
+    context = ""
+    if(sen_ID[3]=="C"):
         small_data = data[sen_ID[0]][sen_ID[1:3]][sen_ID[3:6]]
         for lesson in small_data.keys():
             if lesson != "name":
@@ -36,10 +41,10 @@ def trace_context(sen_ID, data):
     return context
 
 def format_QA(QA):
+    QA['answer_options'][0]=QA['answer_options'][0][3:]
     QA['answer_options'][1]=QA['answer_options'][1][3:]
     QA['answer_options'][2]=QA['answer_options'][2][3:]
     QA['answer_options'][3]=QA['answer_options'][3][3:]
-    QA['answer_options'][4]=QA['answer_options'][4][3:]
     if(QA['correct_answer'][0]=="A"):
         QA['correct_answer']=0
     elif(QA['correct_answer'][0]=="B"):
@@ -50,7 +55,7 @@ def format_QA(QA):
         QA['correct_answer']=3
     return QA
 
-def vectorize_context(context, QA, model, tokenizer):
+def vectorize_context_QA(context, QA, model, tokenizer):
     delimiters = "[.,;!]"  
     sens = re.split(delimiters, context)
     vec_context = []
@@ -64,10 +69,7 @@ def vectorize_context(context, QA, model, tokenizer):
         vec_answer_options.append(new_vec_ans_opt)
     return sens, vec_context, vec_question, vec_answer_options
 
-def select_sens(sens, vec_context, vec_question):
-    #threads hold: cosine:
-    e = 0.6
-    
+def select_sens(sens, vec_context, vec_question, e):
     i = 0
     while(True):
         if(len(sens) == 5):
@@ -80,7 +82,7 @@ def select_sens(sens, vec_context, vec_question):
             vec_context.pop(i)
         else:
             i+=1
-    return sens, vec_context, vec_question
+    return sens, vec_context
 
 def knn_labels(points, centers):
     similarity = cosine_similarity(points, centers)
@@ -120,3 +122,14 @@ def predict(labels, costs, sens):
         if(labels[i]==pred_ans):
             explain += (sens[i] +". ")
     return pred_ans, pred_ans_ratio, explain
+
+def export_answer(pred_ans, pred_ans_ratio, QA_ID, explain, outputpath):
+    with open(outputpath,"r+",encoding='utf-8') as f:
+        output = json.load(f)
+    new = {'Predicted answer':pred_ans,
+           'Ratio': pred_ans_ratio,
+           'Explain': explain
+           }
+    output.update({QA_ID:new})
+    with open(outputpath,'r+',encoding='utf-8') as f:
+        json.dump(output,f,ensure_ascii=False,indent=4)
