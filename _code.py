@@ -87,7 +87,7 @@ def select_sens(sens, vec_context, vec_question, e):
 def knn_labels(points, centers):
     points = np.array(points)
     centers = np.array(centers)
-    
+
     similarity = cosine_similarity(points, centers)
     distance = 1 - similarity
     # Find the index of the center with the highest similarity (smallest distance)
@@ -108,6 +108,7 @@ def knn_labels(points, centers):
     return labels, costs
 
 def predict(labels, costs, sens):
+    costs = np.array(costs)
     sum_cost = costs.sum()
     percentage_answers = [
         costs[0]/sum_cost,
