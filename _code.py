@@ -133,7 +133,7 @@ def export_answer(pred_ans, pred_ans_ratio, QA_ID, explain, outputpath):
     with open(outputpath,"r+",encoding='utf-8') as f:
         output = json.load(f)
     new = {'Predicted answer':pred_ans,
-           'Ratio': pred_ans_ratio,
+           'Ratio': float(round(pred_ans_ratio, 2)),
            'Explain': explain
            }
     output.update({QA_ID:new})
