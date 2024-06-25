@@ -76,7 +76,7 @@ def select_sens(sens, vec_context, vec_question, e):
             break
         if(i == len(sens)):
             break
-        cosine_sim = cosine_similarity(vec_question, vec_context[i])
+        cosine_sim = cosine_similarity([vec_question], [vec_context[i]])
         if cosine_sim <= e:
             sens.pop(i)
             vec_context.pop(i)
