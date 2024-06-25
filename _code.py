@@ -41,18 +41,9 @@ def trace_context(sen_ID, data):
     return context
 
 def format_QA(QA):
-    QA['answer_options'][0]=QA['answer_options'][0][3:]
-    QA['answer_options'][1]=QA['answer_options'][1][3:]
-    QA['answer_options'][2]=QA['answer_options'][2][3:]
-    QA['answer_options'][3]=QA['answer_options'][3][3:]
-    if(QA['correct_answer'][0]=="A"):
-        QA['correct_answer']=0
-    elif(QA['correct_answer'][0]=="B"):
-        QA['correct_answer']=1
-    elif(QA['correct_answer'][0]=="C"):
-        QA['correct_answer']=2
-    else:
-        QA['correct_answer']=3
+    for i in range(4):
+        QA['answer_options'][i] = QA['answer_options'][i][3:]
+    QA['correct_answer'] = ord(QA['correct_answer'][0]) - ord('A')
     return QA
 
 def vectorize_context_QA(context, QA, model, tokenizer):
@@ -118,24 +109,17 @@ def predict(labels, costs, sens):
     ]
     pred_ans_ratio = max(percentage_answers)
     pred_ans = percentage_answers.index(pred_ans_ratio)
-    explain = ""
-    i = 0
-    while(True):
-        if(i==len(sens)):
-            break
-        if(labels[i]==pred_ans):
-            explain += (sens[i] +". ")
-        i+=1
+    explain = [sens[i] for i in np.where(labels == pred_ans)[0]]
             
     return pred_ans, pred_ans_ratio, explain
 
-def export_answer(pred_ans, pred_ans_ratio, QA_ID, explain, outputpath):
-    with open(outputpath,"r+",encoding='utf-8') as f:
-        output = json.load(f)
-    new = {'Predicted answer':pred_ans,
-           'Ratio': float(round(pred_ans_ratio, 2)),
-           'Explain': explain
-           }
-    output.update({QA_ID:new})
-    with open(outputpath,'r+',encoding='utf-8') as f:
-        json.dump(output,f,ensure_ascii=False,indent=4)
+def export_answer(pred_ans, pred_ans_ratio, QA_key, explain, output):
+    result = {
+        "predicted_answer": pred_ans,
+        "predicted_answer_ratio": pred_ans_ratio.tolist(),
+        "QA_key": QA_key,
+        "explain": explain
+    }
+    with open(output, 'a') as f:
+        json.dump(result, f)
+        f.write('\n')
