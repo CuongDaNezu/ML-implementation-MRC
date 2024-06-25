@@ -85,6 +85,9 @@ def select_sens(sens, vec_context, vec_question, e):
     return sens, vec_context
 
 def knn_labels(points, centers):
+    points = np.array(points)
+    centers = np.array(centers)
+    
     similarity = cosine_similarity(points, centers)
     distance = 1 - similarity
     # Find the index of the center with the highest similarity (smallest distance)
