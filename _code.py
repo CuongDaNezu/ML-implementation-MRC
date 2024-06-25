@@ -125,6 +125,8 @@ def predict(labels, costs, sens):
             break
         if(labels[i]==pred_ans):
             explain += (sens[i] +". ")
+        i+=1
+            
     return pred_ans, pred_ans_ratio, explain
 
 def export_answer(pred_ans, pred_ans_ratio, QA_ID, explain, outputpath):
