@@ -92,13 +92,15 @@ def predict(labels, costs, sens):
         idx = np.where(unique_labels == label)[0][0]
         sums[idx] += cost
         counts[idx] += 1
-    costs = np.divide(sums, counts, out=np.zeros_like(sums), where=counts != 0)
-    sum_cost = costs[0] + costs[1] + costs[2] + costs[3]
+    avg_costs = np.divide(sums, counts, out=np.zeros_like(sums), where=counts != 0)
+    if avg_costs.all() == 0:
+        return 4, 0, 'null'
+    sum_cost = avg_costs[0] + avg_costs[1] + avg_costs[2] + avg_costs[3]
     percentage_answers = [
-        costs[0]/sum_cost,
-        costs[1]/sum_cost,
-        costs[2]/sum_cost,
-        costs[3]/sum_cost,
+        avg_costs[0]/sum_cost,
+        avg_costs[1]/sum_cost,
+        avg_costs[2]/sum_cost,
+        avg_costs[3]/sum_cost,
     ]
     pred_ans_ratio = max(percentage_answers)
     pred_ans = percentage_answers.index(pred_ans_ratio)
@@ -123,7 +125,7 @@ def export_answer(pred_ans, pred_ans_ratio, QA_key, explain, output):
 
 def process_batch(batch_keys, QAs, dataset, model, tokenizer, device, e, output):
     results = {}
-    for QA_key in tqdm(batch_keys, desc=f"Processing QAs in Batch {batch_keys}"):
+    for QA_key in tqdm(batch_keys, desc=f"Processing QAs in Batch"):
         QA = QAs[QA_key]
         QA = format_QA(QA)
 
