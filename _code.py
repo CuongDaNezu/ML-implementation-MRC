@@ -54,12 +54,17 @@ def vectorize_context_QA(context, QA, model, tokenizer, device='cuda:0'):
     sens = re.split(delimiters, context)
     sens = [sen.strip() for sen in sens if sen != '.' or len(sen) > 10]
     vec_context = []
+    valid_sens = []
     for sen in sens:
-        new_vec_sen = vectorize_sentence(sen, model, tokenizer, device)
-        vec_context.append(new_vec_sen)
+        try:
+            new_vec_sen = vectorize_sentence(sen, model, tokenizer, device)
+            vec_context.append(new_vec_sen)
+            valid_sens.append(sen)
+        except Exception as e:
+            print(f"Could not vectorize sentence: '{sen}'. Error: {e}")
     vec_question = vectorize_sentence(QA['question'], model, tokenizer, device)
-    vec_answer_options = [vectorize_sentence(opt, model, tokenizer, device) for opt in QA['answer_options']]
-    return sens, np.array(vec_context), vec_question, np.array(vec_answer_options)
+    vec_answer_options = [vectorize_sentence(opt, model, tokenizer, device) for opt in QA['answer_options']] 
+    return valid_sens, np.array(vec_context), vec_question, np.array(vec_answer_options)
 
 def select_sens(sens, vec_context, vec_question, threshold, device='cuda:0'):
     vec_question = torch.tensor(vec_question).to(device)
