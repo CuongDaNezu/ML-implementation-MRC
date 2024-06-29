@@ -2,6 +2,7 @@ import json
 import numpy as np
 import re
 import torch
+from tqdm import tqdm
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import AutoModel, AutoTokenizer
 
@@ -119,3 +120,28 @@ def export_answer(pred_ans, pred_ans_ratio, QA_key, explain, output):
     output_data.update({QA_key:new})
     with open(output, "r+", encoding='utf-8') as f:
         json.dump(output_data,f,ensure_ascii=False,indent=4)
+
+def process_batch(batch_keys, QAs, dataset, model, tokenizer, device, e, output):
+    results = {}
+    for QA_key in tqdm(batch_keys, desc=f"Processing QAs in Batch {batch_keys}"):
+        QA = QAs[QA_key]
+        QA = format_QA(QA)
+
+        # Get context for QA
+        context = trace_context(QA_key, dataset)
+
+        # Vectorize context and QA
+        sens, vec_context, vec_question, vec_answer_options = vectorize_context_QA(context, QA, model, tokenizer, device)
+
+        # Remove context based on cosine similarity with threshold e
+        sens, vec_context = select_sens(sens, vec_context, vec_question, e, device)
+
+        # Clustering based on cosine similarity
+        labels, costs = knn_labels(vec_context, vec_answer_options, device)
+
+        # Predict and get explanation
+        pred_ans, pred_ans_ratio, explain = predict(labels, costs, sens)
+
+        # Save predicted answer
+        export_answer(pred_ans, pred_ans_ratio, QA_key, explain, output)
+    return results
