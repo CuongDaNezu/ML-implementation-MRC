@@ -52,7 +52,7 @@ def format_QA(QA):
 def vectorize_context_QA(context, QA, model, tokenizer, device='cuda:0'):
     delimiters = "[.,;!]"
     sens = re.split(delimiters, context)
-    sens = [sen for sen in sens if sen.strip() != '.' or len(sen) > 10]
+    sens = [sen.strip() for sen in sens if sen != '.' or len(sen) > 10]
     vec_context = []
     for sen in sens:
         new_vec_sen = vectorize_sentence(sen, model, tokenizer, device)
