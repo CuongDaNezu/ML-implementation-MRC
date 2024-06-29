@@ -31,14 +31,16 @@ def trace_context(sen_ID, data):
                 context += "."
                 context += small_data[lesson]['context']
     else:
+        found = False
         small_data = data[sen_ID[0]][sen_ID[1:3]]
         for chapter in small_data.keys():
             for lesson in small_data[chapter].keys():
                 if lesson == sen_ID[3:6]:
                     context = small_data[chapter][lesson]['context']
-                    print(context, chapter, lesson)
-                    break
-            break
+                    found = True
+                    break 
+            if found:
+                break
     return context
 
 def format_QA(QA):
@@ -50,7 +52,7 @@ def format_QA(QA):
 def vectorize_context_QA(context, QA, model, tokenizer, device='cuda:0'):
     delimiters = "[.,;!]"
     sens = re.split(delimiters, context)
-    sens = [sen for sen in sens if sen.strip() != '.' or len(sen) < 5]
+    sens = [sen for sen in sens if sen.strip() != '.' or len(sen) > 10]
     vec_context = []
     for sen in sens:
         new_vec_sen = vectorize_sentence(sen, model, tokenizer, device)
