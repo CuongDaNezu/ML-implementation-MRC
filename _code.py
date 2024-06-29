@@ -43,13 +43,14 @@ def trace_context(sen_ID, data):
 
 def format_QA(QA):
     for i in range(4):
-        QA['answer_options'][i] = QA['answer_options'][i][3:]
+        QA['answer_options'][i] = QA['answer_options'][i][3:].lower()
     QA['correct_answer'] = ord(QA['correct_answer'][0]) - ord('A')
     return QA
 
 def vectorize_context_QA(context, QA, model, tokenizer, device='cuda:0'):
     delimiters = "[.,;!]"
     sens = re.split(delimiters, context)
+    sens = [sen for sen in sens if sen.strip() != '.' or len(sen) < 5]
     vec_context = []
     for sen in sens:
         new_vec_sen = vectorize_sentence(sen, model, tokenizer, device)
@@ -93,7 +94,7 @@ def predict(labels, costs, sens):
         sums[idx] += cost
         counts[idx] += 1
     avg_costs = np.divide(sums, counts, out=np.zeros_like(sums), where=counts != 0)
-    if avg_costs.sum() ==0:
+    if avg_costs.sum() == 0:
         return 4, 0, 'null'
     sum_cost = avg_costs[0] + avg_costs[1] + avg_costs[2] + avg_costs[3]
     percentage_answers = [
