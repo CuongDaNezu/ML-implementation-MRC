@@ -16,7 +16,7 @@ args = parser.parse_args()
 
 #Load model, tokenizer, QAs set and dataset
 print("Load model, tokenizer")
-if args.overwrite:
+if args.CUDA:
     CUDA = True
 else:
     CUDA = False
