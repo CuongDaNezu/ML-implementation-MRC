@@ -1,9 +1,6 @@
 import json
-import numpy as np
-import re
 import torch
 from tqdm import tqdm
-from transformers import AutoModel, AutoTokenizer
 from _code import load_model_tokenizer, trace_context, format_QA, vectorize_context_QA, select_sens, knn_labels, predict, export_answer
 
 import argparse
@@ -14,12 +11,16 @@ parser.add_argument("--output", type = str, help = "Path to output file", defaul
 parser.add_argument("--QAs", type = str, help = "QA set", default = "data_full.json")
 parser.add_argument("--dataset", type = str, help = "Dataset SGK", default = "sgk_final_new.json")
 parser.add_argument("--e", type = float, help = "threadhold for cosine similarity in select_sens", default = 0.5)
-
+parser.add_argument('--CUDA', action='use_CUDA', help = "Whether to use CUDA or hot")
 args = parser.parse_args()
 
 #Load model, tokenizer, QAs set and dataset
 print("Load model, tokenizer")
-model, tokenizer = load_model_tokenizer(args.path)
+if args.overwrite:
+    use_CUDA = True
+else:
+    use_CUDA = False
+model, tokenizer = load_model_tokenizer(args.path, use_CUDA)
 print("Loaded")
 print("Load dataset, QAs")
 with open(args.QAs, 'r+', encoding = 'utf-8') as json_file:

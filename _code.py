@@ -5,17 +5,26 @@ import torch
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import AutoModel, AutoTokenizer
 
-def load_model_tokenizer(path = ""):
-    if path == "":
-        model = AutoModel.from_pretrained('./model')
-        tokenizer = AutoTokenizer.from_pretrained('uitnlp/CafeBERT')
+def load_model_tokenizer(path = "", CUDA = False):
+    if CUDA == False:
+        if path == "":
+            model = AutoModel.from_pretrained('./model').to('cuda')
+            tokenizer = AutoTokenizer.from_pretrained('uitnlp/CafeBERT')
+        else:
+            model = AutoModel.from_pretrained(path).to('cuda')
+            tokenizer = AutoTokenizer.from_pretrained(path)
     else:
-        model = AutoModel.from_pretrained(path)
-        tokenizer = AutoTokenizer.from_pretrained(path)
+        if path == "":
+            model = AutoModel.from_pretrained('./model')
+            tokenizer = AutoTokenizer.from_pretrained('uitnlp/CafeBERT')
+        else:
+            model = AutoModel.from_pretrained(path)
+            tokenizer = AutoTokenizer.from_pretrained(path)
+
     return model, tokenizer
 
 def vectorize_sentence(sen, model, tokenizer):
-    encoding = tokenizer(sen, return_tensors='pt')
+    encoding = tokenizer(sen, return_tensors='pt').to('cuda')
     with torch.no_grad():
         output = model(**encoding)
         word_vectors = output.last_hidden_state[0, 0, :].cpu().detach().numpy()
