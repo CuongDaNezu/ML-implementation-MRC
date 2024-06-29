@@ -120,18 +120,22 @@ def predict(labels, costs, sens):
             
     return pred_ans, pred_ans_ratio, explain
 
-def export_answer(pred_ans, pred_ans_ratio, QA_key, explain, output):
-    with open(output,"r+",encoding='utf-8') as f:
-        output_data = json.load(f)
-    new = {'Predicted answer':pred_ans,
-           'Ratio': float(round(pred_ans_ratio, 2)),
-           'Explain': explain
-           }
-    output_data.update({QA_key:new})
-    with open(output, "r+", encoding='utf-8') as f:
-        json.dump(output_data,f,ensure_ascii=False,indent=4)
+# def export_answer(pred_ans, pred_ans_ratio, QA_key, explain, output):
+#     with open(output,"r+",encoding='utf-8') as f:
+#         output_data = json.load(f)
+#     new = {'Predicted answer':pred_ans,
+#            'Ratio': float(round(pred_ans_ratio, 2)),
+#            'Explain': explain
+#            }
+#     output_data.update({QA_key:new})
+#     with open(output, "r+", encoding='utf-8') as f:
+#         json.dump(output_data,f,ensure_ascii=False,indent=4)
 
-def process_batch(batch_keys, QAs, dataset, model, tokenizer, device, e, output):
+def save_intermediate_results(output_path, results):
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(results, f, ensure_ascii=False, indent=4)
+
+def process_batch(batch_keys, QAs, dataset, model, tokenizer, device, e):
     results = {}
     for QA_key in tqdm(batch_keys, desc=f"Processing QAs in Batch"):
         QA = QAs[QA_key]
@@ -153,5 +157,9 @@ def process_batch(batch_keys, QAs, dataset, model, tokenizer, device, e, output)
         pred_ans, pred_ans_ratio, explain = predict(labels, costs, sens)
 
         # Save predicted answer
-        export_answer(pred_ans, pred_ans_ratio, QA_key, explain, output)
+        results[QA_key] = {
+            'predicted_answer': pred_ans,
+            'predicted_answer_ratio': pred_ans_ratio,
+            'explanation': explain
+        }
     return results

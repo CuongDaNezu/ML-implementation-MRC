@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from _code import load_model_tokenizer, process_batch
+from _code import load_model_tokenizer, process_batch, save_intermediate_results
 import torch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
@@ -10,7 +10,7 @@ parser.add_argument("--path", type=str, help="Path to model and tokenizer", defa
 parser.add_argument("--output", type=str, help="Path to output file", default="output.json")
 parser.add_argument("--QAs", type=str, help="QA set", default="data_full.json")
 parser.add_argument("--dataset", type=str, help="Dataset SGK", default="sgk_final_new.json")
-parser.add_argument("--e", type=float, help="Threshold for cosine similarity in select_sens", default=0.5)
+parser.add_argument("--e", type=float, help="Threshold for cosine similarity in select_sens", default=0.8)
 parser.add_argument("--cuda_device", type=int, help="CUDA device index", default=0)
 parser.add_argument("--batch_size", type=int, help="Number of QAs per batch", default=100)
 parser.add_argument("--num_workers", type=int, help="Number of parallel workers", default=4)
@@ -39,19 +39,22 @@ print(f"Start predicting {len(QAs)} question in {num_batches} batches")
 # n_QA: formatted QA
 # sens: list of sentences in context
 # vec_x: vectorized "x"
+results = {}
 with ThreadPoolExecutor(max_workers=args.num_workers) as executor:
     future_to_batch = {}
     for batch_idx in range(num_batches):
         batch_start = batch_idx * args.batch_size
         batch_end = min((batch_idx + 1) * args.batch_size, len(QA_keys))
         batch_keys = QA_keys[batch_start:batch_end]
-        future = executor.submit(process_batch, batch_keys, QAs, dataset, model, tokenizer, device, args.e, args.output)
+        future = executor.submit(process_batch, batch_keys, QAs, dataset, model, tokenizer, device, args.e)
         future_to_batch[future] = batch_idx
 
     for future in as_completed(future_to_batch):
         batch_idx = future_to_batch[future]
         batch_results = future.result()
+        results.update(batch_results)
         # Save intermediate results after each batch
+        save_intermediate_results(args.output, results)
         print(f"Batch {batch_idx + 1}/{num_batches} complete and saved.")
 
 print("Processing complete. Results saved to", args.output)
