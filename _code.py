@@ -93,7 +93,7 @@ def predict(labels, costs, sens):
         sums[idx] += cost
         counts[idx] += 1
     avg_costs = np.divide(sums, counts, out=np.zeros_like(sums), where=counts != 0)
-    if avg_costs.all() == 0:
+    if avg_costs.sum() ==0:
         return 4, 0, 'null'
     sum_cost = avg_costs[0] + avg_costs[1] + avg_costs[2] + avg_costs[3]
     percentage_answers = [
@@ -127,13 +127,13 @@ def process_batch(batch_keys, QAs, dataset, model, tokenizer, device, e, output)
     results = {}
     for QA_key in tqdm(batch_keys, desc=f"Processing QAs in Batch"):
         QA = QAs[QA_key]
-        QA = format_QA(QA)
+        formated_QA = format_QA(QA)
 
         # Get context for QA
         context = trace_context(QA_key, dataset)
 
         # Vectorize context and QA
-        sens, vec_context, vec_question, vec_answer_options = vectorize_context_QA(context, QA, model, tokenizer, device)
+        sens, vec_context, vec_question, vec_answer_options = vectorize_context_QA(context, formated_QA, model, tokenizer, device)
 
         # Remove context based on cosine similarity with threshold e
         sens, vec_context = select_sens(sens, vec_context, vec_question, e, device)
