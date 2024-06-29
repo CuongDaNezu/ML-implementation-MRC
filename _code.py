@@ -5,38 +5,29 @@ import torch
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import AutoModel, AutoTokenizer
 
-def load_model_tokenizer(path = "", CUDA = False):
-    if CUDA == False:
-        if path == "":
-            model = AutoModel.from_pretrained('./model').to('cuda')
-            tokenizer = AutoTokenizer.from_pretrained('uitnlp/CafeBERT')
-        else:
-            model = AutoModel.from_pretrained(path).to('cuda')
-            tokenizer = AutoTokenizer.from_pretrained(path)
+def load_model_tokenizer(path = "", device='cuda:0'):
+    if path == "":
+        model = AutoModel.from_pretrained('./model').to(device)
+        tokenizer = AutoTokenizer.from_pretrained('uitnlp/CafeBERT')
     else:
-        if path == "":
-            model = AutoModel.from_pretrained('./model')
-            tokenizer = AutoTokenizer.from_pretrained('uitnlp/CafeBERT')
-        else:
-            model = AutoModel.from_pretrained(path)
-            tokenizer = AutoTokenizer.from_pretrained(path)
-
+        model = AutoModel.from_pretrained(path).to(device)
+        tokenizer = AutoTokenizer.from_pretrained(path)
     return model, tokenizer
 
-def vectorize_sentence(sen, model, tokenizer):
-    encoding = tokenizer(sen, return_tensors='pt').to('cuda')
+def vectorize_sentence(sen, model, tokenizer, device='cuda:0'):
+    encoding = tokenizer(sen, return_tensors='pt').to(device)
     with torch.no_grad():
         output = model(**encoding)
         word_vectors = output.last_hidden_state[0, 0, :].cpu().detach().numpy()
         return word_vectors
-    
+
 def trace_context(sen_ID, data):
     context = ""
-    if(sen_ID[3]=="C"):
+    if sen_ID[3] == "C":
         small_data = data[sen_ID[0]][sen_ID[1:3]][sen_ID[3:6]]
         for lesson in small_data.keys():
             if lesson != "name":
-                context +="."
+                context += "."
                 context += small_data[lesson]['context']
     else:
         small_data = data[sen_ID[0]][sen_ID[1:3]]
@@ -55,61 +46,53 @@ def format_QA(QA):
     QA['correct_answer'] = ord(QA['correct_answer'][0]) - ord('A')
     return QA
 
-def vectorize_context_QA(context, QA, model, tokenizer):
-    delimiters = "[.,;!]"  
+def vectorize_context_QA(context, QA, model, tokenizer, device='cuda:0'):
+    delimiters = "[.,;!]"
     sens = re.split(delimiters, context)
     vec_context = []
     for sen in sens:
-        new_vec_sen = vectorize_sentence(sen, model, tokenizer)
+        new_vec_sen = vectorize_sentence(sen, model, tokenizer, device)
         vec_context.append(new_vec_sen)
-    vec_question = vectorize_sentence(QA['question'], model, tokenizer)
-    vec_answer_options = []
-    for ans in QA['answer_options']:
-        new_vec_ans_opt = vectorize_sentence(ans, model, tokenizer)
-        vec_answer_options.append(new_vec_ans_opt)
-    return sens, vec_context, vec_question, vec_answer_options
+    vec_question = vectorize_sentence(QA['question'], model, tokenizer, device)
+    vec_answer_options = [vectorize_sentence(opt, model, tokenizer, device) for opt in QA['answer_options']]
+    return sens, np.array(vec_context), vec_question, np.array(vec_answer_options)
 
-def select_sens(sens, vec_context, vec_question, e):
-    i = 0
-    while(True):
-        if(len(sens) == 5):
-            break
-        if(i == len(sens)):
-            break
-        cosine_sim = cosine_similarity([vec_question], [vec_context[i]])
-        if cosine_sim <= e:
-            sens.pop(i)
-            vec_context.pop(i)
-        else:
-            i+=1
-    return sens, vec_context
+def select_sens(sens, vec_context, vec_question, threshold, device='cuda:0'):
+    vec_question = torch.tensor(vec_question).to(device)
+    selected_sens = []
+    selected_vec_context = []
+    for sen, vec in zip(sens, vec_context):
+        vec = torch.tensor(vec).to(device)
+        cos_sim = cosine_similarity(vec_question.cpu().numpy().reshape(1, -1), vec.cpu().numpy().reshape(1, -1))
+        if cos_sim >= threshold:
+            selected_sens.append(sen)
+            selected_vec_context.append(vec.cpu().numpy())
+    return selected_sens, np.array(selected_vec_context)
 
-def knn_labels(points, centers):
-    points = np.array(points)
-    centers = np.array(centers)
-
-    similarity = cosine_similarity(points, centers)
-    distance = 1 - similarity
-    # Find the index of the center with the highest similarity (smallest distance)
-    labels = np.argmin(distance, axis=1)
-
-
-    # Compute the mean distance (cost) for each center
-    min_distances = distance[np.arange(distance.shape[0]), labels]
+def knn_labels(vec_context, vec_answer_options, device='cuda:0'):
+    vec_context = torch.tensor(vec_context).to(device)
+    vec_answer_options = torch.tensor(vec_answer_options).to(device)
+    labels = []
     costs = []
-    for center_idx in range(centers.shape[0]):
-        center_distances = min_distances[labels == center_idx]
-        if len(center_distances) > 0:
-            mean_distance = np.mean(center_distances)
-        else:
-            mean_distance = 0  # No points assigned to this center
-        costs.append(mean_distance)
-    
+    for vec in vec_context:
+        cos_sims = cosine_similarity(vec.cpu().numpy().reshape(1, -1), vec_answer_options.cpu().numpy())
+        label = np.argmax(cos_sims)
+        cost = np.max(cos_sims)
+        labels.append(label)
+        costs.append(cost)
     return labels, costs
 
 def predict(labels, costs, sens):
     costs = np.array(costs)
-    sum_cost = costs.sum()
+    unique_labels = [0,1,2,3]
+    sums = np.zeros(4)
+    counts = np.zeros(4)
+    for label, cost in zip(labels, costs):
+        idx = np.where(unique_labels == label)[0][0]
+        sums[idx] += cost
+        counts[idx] += 1
+    costs = np.divide(sums, counts, out=np.zeros_like(sums), where=counts != 0)
+    sum_cost = costs[0] + costs[1] + costs[2] + costs[3]
     percentage_answers = [
         costs[0]/sum_cost,
         costs[1]/sum_cost,
@@ -118,17 +101,21 @@ def predict(labels, costs, sens):
     ]
     pred_ans_ratio = max(percentage_answers)
     pred_ans = percentage_answers.index(pred_ans_ratio)
-    explain = [sens[i] for i in np.where(labels == pred_ans)[0]]
+    explain = ""
+    i = 0
+    for i in range(len(sens)):
+        if(labels[i]==pred_ans):
+            explain += (sens[i] +". ")
             
     return pred_ans, pred_ans_ratio, explain
 
 def export_answer(pred_ans, pred_ans_ratio, QA_key, explain, output):
-    result = {
-        "predicted_answer": pred_ans,
-        "predicted_answer_ratio": pred_ans_ratio.tolist(),
-        "QA_key": QA_key,
-        "explain": explain
-    }
-    with open(output, 'a') as f:
-        json.dump(result, f)
-        f.write('\n')
+    with open(output,"r+",encoding='utf-8') as f:
+        output_data = json.load(f)
+    new = {'Predicted answer':pred_ans,
+           'Ratio': float(round(pred_ans_ratio, 2)),
+           'Explain': explain
+           }
+    output_data.update({QA_key:new})
+    with open(output, "r+", encoding='utf-8') as f:
+        json.dump(output_data,f,ensure_ascii=False,indent=4)
