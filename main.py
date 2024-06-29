@@ -11,16 +11,16 @@ parser.add_argument("--output", type = str, help = "Path to output file", defaul
 parser.add_argument("--QAs", type = str, help = "QA set", default = "data_full.json")
 parser.add_argument("--dataset", type = str, help = "Dataset SGK", default = "sgk_final_new.json")
 parser.add_argument("--e", type = float, help = "threadhold for cosine similarity in select_sens", default = 0.5)
-parser.add_argument('--CUDA', action='use_CUDA', help = "Whether to use CUDA or hot")
+parser.add_argument('--CUDA', action='store_true', help = "Whether to use CUDA or hot")
 args = parser.parse_args()
 
 #Load model, tokenizer, QAs set and dataset
 print("Load model, tokenizer")
 if args.overwrite:
-    use_CUDA = True
+    CUDA = True
 else:
-    use_CUDA = False
-model, tokenizer = load_model_tokenizer(args.path, use_CUDA)
+    CUDA = False
+model, tokenizer = load_model_tokenizer(args.path, CUDA)
 print("Loaded")
 print("Load dataset, QAs")
 with open(args.QAs, 'r+', encoding = 'utf-8') as json_file:
