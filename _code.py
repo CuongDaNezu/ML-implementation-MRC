@@ -138,28 +138,31 @@ def save_intermediate_results(output_path, results):
 def process_batch(batch_keys, QAs, dataset, model, tokenizer, device, e):
     results = {}
     for QA_key in tqdm(batch_keys, desc=f"Processing QAs in Batch"):
-        QA = QAs[QA_key]
-        formated_QA = format_QA(QA)
+        try:
+            QA = QAs[QA_key]
+            formated_QA = format_QA(QA)
 
-        # Get context for QA
-        context = trace_context(QA_key, dataset)
+            # Get context for QA
+            context = trace_context(QA_key, dataset)
 
-        # Vectorize context and QA
-        sens, vec_context, vec_question, vec_answer_options = vectorize_context_QA(context, formated_QA, model, tokenizer, device)
+            # Vectorize context and QA
+            sens, vec_context, vec_question, vec_answer_options = vectorize_context_QA(context, formated_QA, model, tokenizer, device)
 
-        # Remove context based on cosine similarity with threshold e
-        sens, vec_context = select_sens(sens, vec_context, vec_question, e, device)
+            # Remove context based on cosine similarity with threshold e
+            sens, vec_context = select_sens(sens, vec_context, vec_question, e, device)
 
-        # Clustering based on cosine similarity
-        labels, costs = knn_labels(vec_context, vec_answer_options, device)
+            # Clustering based on cosine similarity
+            labels, costs = knn_labels(vec_context, vec_answer_options, device)
 
-        # Predict and get explanation
-        pred_ans, pred_ans_ratio, explain = predict(labels, costs, sens)
+            # Predict and get explanation
+            pred_ans, pred_ans_ratio, explain = predict(labels, costs, sens)
 
-        # Save predicted answer
-        results[QA_key] = {
-            'predicted_answer': pred_ans,
-            'predicted_answer_ratio': pred_ans_ratio,
-            'explanation': explain
-        }
+            # Save predicted answer
+            results[QA_key] = {
+                'predicted_answer': pred_ans,
+                'predicted_answer_ratio': pred_ans_ratio,
+                'explanation': explain
+            }
+        except:
+            print('error')
     return results
